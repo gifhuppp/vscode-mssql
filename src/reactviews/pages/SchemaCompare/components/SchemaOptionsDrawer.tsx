@@ -5,10 +5,6 @@
 
 import { useContext, useEffect, useState } from "react";
 import {
-    Accordion,
-    AccordionHeader,
-    AccordionItem,
-    AccordionPanel,
     Button,
     Checkbox,
     Drawer,
@@ -16,8 +12,10 @@ import {
     DrawerFooter,
     DrawerHeader,
     DrawerHeaderTitle,
+    InfoLabel,
     Label,
     makeStyles,
+    SearchBox,
     SelectTabData,
     SelectTabEvent,
     Tab,
@@ -31,14 +29,19 @@ import { schemaCompareContext } from "../SchemaCompareStateProvider";
 import { DacDeployOptionPropertyBoolean } from "vscode-mssql";
 
 const useStyles = makeStyles({
-    generalOptionsContainer: {
-        height: "55vh",
+    optionsContainer: {
+        height: "75vh",
         overflowY: "auto",
     },
 
-    objectTypesContainer: {
-        height: "80vh",
-        overflowY: "auto",
+    listItemContainer: {
+        display: "flex",
+        alignItems: "center",
+    },
+
+    searchContainer: {
+        margin: "10px 0",
+        width: "100%",
     },
 });
 
@@ -49,8 +52,10 @@ interface Props {
 
 const SchemaOptionsDrawer = (props: Props) => {
     const classes = useStyles();
-
     const context = useContext(schemaCompareContext);
+    const [optionsChanged, setOptionsChanged] = useState(false);
+    const [selectedValue, setSelectedValue] = useState<TabValue>("generalOptions");
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         context.setIntermediarySchemaOptions();
@@ -78,9 +83,16 @@ const SchemaOptionsDrawer = (props: Props) => {
         );
     }
 
-    const [optionsChanged, setOptionsChanged] = useState(false);
-    const [selectedValue, setSelectedValue] = useState<TabValue>("generalOptions");
-    const [description, setDescription] = useState<string>("");
+    const filteredGeneralOptions = generalOptionEntries.filter(
+        ([_, value]) =>
+            searchQuery === "" ||
+            value.displayName.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+
+    const filteredObjectTypes = includeObjectTypesEntries.filter(
+        ([_, value]) =>
+            searchQuery === "" || value.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
 
     const onTabSelect = (_: SelectTabEvent, data: SelectTabData) => {
         setSelectedValue(data.value);
@@ -127,6 +139,13 @@ const SchemaOptionsDrawer = (props: Props) => {
                 </DrawerHeaderTitle>
             </DrawerHeader>
             <DrawerBody>
+                <SearchBox
+                    className={classes.searchContainer}
+                    placeholder={loc.schemaCompare.searchOptions}
+                    value={searchQuery}
+                    onChange={(_, data) => setSearchQuery(data.value)}
+                />
+
                 <TabList selectedValue={selectedValue} onTabSelect={onTabSelect}>
                     <Tab id="GeneralOptions" value="generalOptions">
                         {loc.schemaCompare.generalOptions}
@@ -135,53 +154,49 @@ const SchemaOptionsDrawer = (props: Props) => {
                         {loc.schemaCompare.includeObjectTypes}
                     </Tab>
                 </TabList>
+
                 {selectedValue === "generalOptions" && (
-                    <Accordion collapsible multiple defaultOpenItems={["0", "1"]}>
-                        <AccordionItem value="0">
-                            <AccordionHeader>{loc.schemaCompare.settings}</AccordionHeader>
-                            <AccordionPanel className={classes.generalOptionsContainer}>
-                                <List>
-                                    {optionsToValueNameLookup &&
-                                        generalOptionEntries.map(([key, value]) => {
-                                            return (
-                                                <ListItem
-                                                    key={key}
-                                                    value={key}
-                                                    aria-label={value.displayName}>
-                                                    <Checkbox
-                                                        checked={value.value}
-                                                        onChange={() => handleSettingChanged(key)}
-                                                    />
-                                                    <Label
-                                                        aria-label={value.displayName}
-                                                        onClick={() =>
-                                                            setDescription(value.description)
-                                                        }>
-                                                        {value.displayName}
-                                                    </Label>
-                                                </ListItem>
-                                            );
-                                        })}
-                                </List>
-                            </AccordionPanel>
-                        </AccordionItem>
-                        <AccordionItem value="1">
-                            <AccordionHeader>{loc.schemaCompare.description}</AccordionHeader>
-                            {!!description && <AccordionPanel>{description}</AccordionPanel>}
-                        </AccordionItem>
-                    </Accordion>
-                )}
-                {selectedValue === "includeObjectTypes" && (
-                    <List className={classes.objectTypesContainer}>
-                        {includeObjectTypesLookup &&
-                            includeObjectTypesEntries.map(([key, value]) => {
+                    <List className={classes.optionsContainer}>
+                        {optionsToValueNameLookup &&
+                            filteredGeneralOptions.map(([key, value]) => {
                                 return (
-                                    <ListItem key={key} value={key} aria-label={value}>
+                                    <ListItem
+                                        className={classes.listItemContainer}
+                                        key={key}
+                                        value={key}
+                                        aria-label={value.displayName}>
+                                        <Checkbox
+                                            checked={value.value}
+                                            onChange={() => handleSettingChanged(key)}
+                                            label={
+                                                <InfoLabel
+                                                    aria-label={value.displayName}
+                                                    info={<>{value.description}</>}>
+                                                    {value.displayName}
+                                                </InfoLabel>
+                                            }
+                                        />
+                                    </ListItem>
+                                );
+                            })}
+                    </List>
+                )}
+
+                {selectedValue === "includeObjectTypes" && (
+                    <List className={classes.optionsContainer}>
+                        {includeObjectTypesLookup &&
+                            filteredObjectTypes.map(([key, value]) => {
+                                return (
+                                    <ListItem
+                                        className={classes.listItemContainer}
+                                        key={key}
+                                        value={key}
+                                        aria-label={value}>
                                         <Checkbox
                                             checked={handleSetObjectTypesCheckedState(key)}
                                             onChange={() => handleObjectTypesOptionChanged(key)}
+                                            label={<Label aria-label={value}>{value}</Label>}
                                         />
-                                        <Label aria-label={value}>{value}</Label>
                                     </ListItem>
                                 );
                             })}

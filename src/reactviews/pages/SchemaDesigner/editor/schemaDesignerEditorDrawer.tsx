@@ -9,13 +9,14 @@ import {
     DrawerHeader,
     DrawerHeaderTitle,
     OverlayDrawer,
+    TabValue,
 } from "@fluentui/react-components";
 import * as FluentIcons from "@fluentui/react-icons";
 import { SchemaDesignerEditor } from "./schemaDesignerEditor";
 import { SchemaDesignerContext } from "../schemaDesignerStateProvider";
 import { createContext, useContext, useEffect, useState } from "react";
 import { locConstants } from "../../../common/locConstants";
-import { tableUtils } from "../schemaDesignerUtils";
+import { columnUtils, foreignKeyUtils, tableUtils } from "../schemaDesignerUtils";
 import { SchemaDesigner } from "../../../../sharedInterfaces/schemaDesigner";
 import eventBus from "../schemaDesignerEvents";
 
@@ -29,15 +30,24 @@ export interface SchemaDesignerEditorContextProps {
     cancel(): void;
     isNewTable: boolean;
     errors: Record<string, string>;
-    setErrors: (errors: Record<string, string>) => void;
+    warnings: Record<string, string>;
     schemas: string[];
     dataTypes: string[];
-    showForeignKey: boolean;
+    selectedTabValue: TabValue;
+    setSelectedTabValue: (tabValue: TabValue) => void;
 }
 
 export const SchemaDesignerEditorContext = createContext<SchemaDesignerEditorContextProps>(
     undefined as unknown as SchemaDesignerEditorContextProps,
 );
+
+export enum SchemaDesignerEditorTab {
+    Table = "table",
+    ForeignKeys = "foreignKeys",
+}
+
+export const TABLE_NAME_ERROR_KEY = `${SchemaDesignerEditorTab.Table}_name`;
+export const FOREIGN_KEY_ERROR_PREFIX = `${SchemaDesignerEditorTab.ForeignKeys}_fk_`;
 
 export const SchemaDesignerEditorDrawer = () => {
     const context = useContext(SchemaDesignerContext);
@@ -62,11 +72,19 @@ export const SchemaDesignerEditorDrawer = () => {
     const [isNewTable, setIsNewTable] = useState(false);
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [warnings, setWarnings] = useState<Record<string, string>>({});
 
     const [schemas, setSchemas] = useState<string[]>([]);
     const [dataTypes, setDataTypes] = useState<string[]>([]);
 
-    const [showForeignKey, setShowForeignKey] = useState(false);
+    const [selectedTabValue, setSelectedTabValue] = useState<TabValue>(
+        SchemaDesignerEditorTab.Table,
+    );
+
+    useEffect(() => {
+        setSchemas(context.schemaNames);
+        setDataTypes(context.datatypes);
+    }, [context]);
 
     useEffect(() => {
         const handleEditTable = (
@@ -78,22 +96,23 @@ export const SchemaDesignerEditorDrawer = () => {
             const updatedTable = context.getTableWithForeignKeys(tableToEdit.id) || tableToEdit;
 
             // Update state
-            setSchemas(context.schemaNames);
-            setDataTypes(context.datatypes);
             setIsEditDrawerOpen(true);
             setSchema(schemaData);
             setTable(updatedTable);
             setIsNewTable(false);
-            setShowForeignKey(Boolean(showForeignKeySection));
+            if (showForeignKeySection) {
+                setSelectedTabValue(SchemaDesignerEditorTab.ForeignKeys);
+            } else {
+                setSelectedTabValue(SchemaDesignerEditorTab.Table);
+            }
         };
 
         const handleNewTable = (schemaData: SchemaDesigner.Schema) => {
-            setSchemas(context.schemaNames);
-            setDataTypes(context.datatypes);
             setSchema(schemaData);
-            setTable(tableUtils.createNewTable(schemaData, context.schemaNames));
+            setTable(tableUtils.createNewTable(schemaData, schemas));
             setIsNewTable(true);
             setIsEditDrawerOpen(true);
+            setSelectedTabValue(SchemaDesignerEditorTab.Table);
         };
         eventBus.on("editTable", handleEditTable);
         eventBus.on("newTable", handleNewTable);
@@ -102,14 +121,9 @@ export const SchemaDesignerEditorDrawer = () => {
             eventBus.off("editTable", handleEditTable);
             eventBus.off("newTable", handleNewTable);
         };
-    });
+    }, [schemas, dataTypes]);
 
     const saveTable = async () => {
-        // If errors are present, do not save
-        if (Object.keys(errors).length > 0) {
-            return;
-        }
-
         let success = false;
 
         if (isNewTable) {
@@ -121,8 +135,52 @@ export const SchemaDesignerEditorDrawer = () => {
         if (success) {
             setIsEditDrawerOpen(false);
             eventBus.emit("getScript"); // Update the SQL script
+            eventBus.emit("pushState"); // Update the history state
         }
     };
+
+    useEffect(() => {
+        const validateTable = () => {
+            const errors: Record<string, string> = {};
+            const warnings: Record<string, string> = {};
+            const nameErrors = tableUtils.tableNameValidationError(schema, table);
+            errors[TABLE_NAME_ERROR_KEY] = nameErrors ?? "";
+
+            for (const column of table.columns) {
+                const columnErrors = columnUtils.isColumnValid(column, table.columns);
+                if (columnErrors) {
+                    errors[`columns_${column.id}`] = columnErrors ?? "";
+                }
+            }
+
+            // Validate foreign keys
+            table.foreignKeys.forEach((fk) => {
+                const foreignKeyErrors = foreignKeyUtils.isForeignKeyValid(
+                    schema.tables,
+                    table,
+                    fk,
+                );
+                if (foreignKeyErrors) {
+                    errors[`${FOREIGN_KEY_ERROR_PREFIX}${fk.id}`] =
+                        foreignKeyErrors.errorMessage ?? "";
+                }
+
+                const foreignKeyWarnings = foreignKeyUtils.getForeignKeyWarnings(
+                    schema.tables,
+                    table,
+                    fk,
+                );
+
+                if (foreignKeyWarnings) {
+                    warnings[`${FOREIGN_KEY_ERROR_PREFIX}${fk.id}`] =
+                        foreignKeyWarnings.errorMessage ?? "";
+                }
+            });
+            setErrors(errors);
+            setWarnings(warnings);
+        };
+        validateTable();
+    }, [table]);
 
     return (
         <OverlayDrawer
@@ -149,8 +207,9 @@ export const SchemaDesignerEditorDrawer = () => {
                     cancel: () => setIsEditDrawerOpen(false),
                     isNewTable: isNewTable,
                     errors: errors,
-                    setErrors: setErrors,
-                    showForeignKey: showForeignKey,
+                    warnings: warnings,
+                    selectedTabValue,
+                    setSelectedTabValue,
                 }}>
                 <DrawerHeader>
                     <DrawerHeaderTitle

@@ -16,6 +16,7 @@ import {
     Spinner,
     Tab,
     TabList,
+    ToolbarButton,
     Tree,
     TreeItem,
     TreeItemLayout,
@@ -29,6 +30,9 @@ import { SchemaDesigner } from "../../../../sharedInterfaces/schemaDesigner";
 import { Editor } from "@monaco-editor/react";
 import { resolveVscodeThemeType } from "../../../common/utils";
 import { ApiStatus } from "../../../../sharedInterfaces/webview";
+import { DiffAddedIcon } from "../../../common/icons/diffAdded";
+import { DiffRemovedIcon } from "../../../common/icons/diffRemoved";
+import { DiffModifiedIcon } from "../../../common/icons/diffModified";
 
 export function PublishChangesDialogButton() {
     const context = useContext(SchemaDesignerContext);
@@ -37,37 +41,23 @@ export function PublishChangesDialogButton() {
     }
 
     const [report, setReport] = useState<SchemaDesigner.GetReportResponse | undefined>(undefined);
+    const [reportError, setReportError] = useState<string | undefined>(undefined);
     const [loading, setLoading] = useState<ApiStatus>(ApiStatus.NotStarted);
 
     const [selectedReportId, setSelectedReportId] = useState<string>("");
-
-    const [isPublishChangesEnabled, setIsPublishChangesEnabled] = useState<boolean>(false);
 
     const [reportTab, setReportTab] = useState<string>("report");
 
     function getReportIcon(state: SchemaDesigner.SchemaDesignerReportTableState) {
         switch (state) {
             case SchemaDesigner.SchemaDesignerReportTableState.Created:
-                return <FluentIcons.AddFilled />;
+                return <DiffAddedIcon />;
             case SchemaDesigner.SchemaDesignerReportTableState.Dropped:
-                return <FluentIcons.SubtractRegular />;
+                return <DiffRemovedIcon />;
             case SchemaDesigner.SchemaDesignerReportTableState.Updated:
-                return <FluentIcons.EditRegular />;
+                return <DiffModifiedIcon />;
         }
     }
-
-    useEffect(() => {
-        context.extensionRpc.subscribe(
-            "schemaDesignerStateProvider",
-            "isModelReady",
-            (payload: unknown) => {
-                const typedPayload = payload as {
-                    isModelReady: boolean;
-                };
-                setIsPublishChangesEnabled(typedPayload.isModelReady);
-            },
-        );
-    }, []);
 
     useEffect(() => {
         if (!report) {
@@ -154,23 +144,27 @@ export function PublishChangesDialogButton() {
     return (
         <Dialog>
             <DialogTrigger disableButtonEnhancement>
-                <Button
-                    size="small"
+                <ToolbarButton
                     icon={<FluentIcons.DatabaseArrowUp16Filled />}
                     title={locConstants.schemaDesigner.publishChanges}
                     appearance="subtle"
-                    disabled={!isPublishChangesEnabled}
                     onClick={async () => {
                         setLoading(ApiStatus.Loading);
                         setReportTab("report");
                         const report = await context.getReport();
-                        if (report) {
-                            setReport(report);
+                        if (report.error) {
+                            setReportError(report.error);
+                            setReport(undefined);
+                        } else {
+                            setReportError(undefined);
+                            if (report.report) {
+                                setReport(report.report);
+                            }
                         }
                         setLoading(ApiStatus.Loaded);
                     }}>
                     {locConstants.schemaDesigner.publishChanges}
-                </Button>
+                </ToolbarButton>
             </DialogTrigger>
             <DialogSurface
                 style={{
@@ -178,7 +172,7 @@ export function PublishChangesDialogButton() {
                     maxWidth: "800px",
                 }}>
                 <DialogBody>
-                    <DialogTitle>Publish changes</DialogTitle>
+                    <DialogTitle>{locConstants.schemaDesigner.publishChanges}</DialogTitle>
                     <DialogContent>
                         {loading === ApiStatus.Loading && (
                             <Spinner
@@ -187,6 +181,8 @@ export function PublishChangesDialogButton() {
                                     marginBottom: "10px",
                                     marginTop: "10px",
                                 }}
+                                label={locConstants.schemaDesigner.generatingReport}
+                                labelPosition="below"
                             />
                         )}
                         {loading === ApiStatus.Loaded && report?.reports?.length === 0 && (
@@ -206,6 +202,25 @@ export function PublishChangesDialogButton() {
                                     }}
                                 />
                                 {locConstants.schemaDesigner.noChangesDetected}
+                            </div>
+                        )}
+                        {loading === ApiStatus.Loaded && reportError && reportError !== "" && (
+                            <div
+                                style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    minHeight: "200px",
+                                }}>
+                                <FluentIcons.ErrorCircleFilled
+                                    style={{
+                                        marginRight: "10px",
+                                        width: "50px",
+                                        height: "50px",
+                                    }}
+                                />
+                                {reportError}
                             </div>
                         )}
                         {loading === ApiStatus.Loaded && report && report?.reports?.length > 0 && (
