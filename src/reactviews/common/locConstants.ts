@@ -32,6 +32,20 @@ export class LocConstants {
             close: l10n.t("Close"),
             apply: l10n.t("Apply"),
             clearSelection: l10n.t("Clear Selection"),
+            find: l10n.t("Find"),
+            findNext: l10n.t("Find Next"),
+            findPrevious: l10n.t("Find Previous"),
+            noResults: l10n.t("No results"),
+            searchResultSummary: (activeElement: number, totalElements: number) =>
+                l10n.t({
+                    message: "{0} of {1}",
+                    args: [activeElement, totalElements],
+                    comment: [
+                        "{0} is the number of active elements",
+                        "{1} is the total number of elements",
+                    ],
+                }),
+            closeFind: l10n.t("Close Find"),
         };
     }
 
@@ -402,8 +416,8 @@ export class LocConstants {
             incompatibleLength: (
                 sourceColumn: string,
                 targetColumn: string,
-                sourceLength: number,
-                targetLength: number,
+                sourceLength: string,
+                targetLength: string,
             ) =>
                 l10n.t({
                     message: "Length mismatch: Column '{0}' ({1}) incompatible with '{2}' ({3})",
@@ -421,6 +435,12 @@ export class LocConstants {
                     args: [sourceColumn, targetColumn],
                     comment: ["{0} is source column", "{1} is target column"],
                 }),
+            incompatibleScale: (sourceColumn: string, targetColumn: string) =>
+                l10n.t({
+                    message: "Scale mismatch between '{0}' and '{1}'",
+                    args: [sourceColumn, targetColumn],
+                    comment: ["{0} is source column", "{1} is target column"],
+                }),
             referencedColumnNotPK: (targetColumn: string) =>
                 l10n.t({
                     message: "Column '{0}' must be a primary key",
@@ -434,8 +454,13 @@ export class LocConstants {
                     comment: ["{0} is source table", "{1} is target table"],
                 }),
             foreignKeyError: l10n.t("Cannot create foreign key"),
-            duplicateForeignKeyColumns: l10n.t("Cannot create foreign key with duplicate columns"),
-            foreignKeyNameEmptyError: l10n.t("Foreign key name cannot be empty"),
+            duplicateForeignKeyColumns: (columnName: string) =>
+                l10n.t({
+                    message: "Column '{0}' already has a foreign key",
+                    args: [columnName],
+                    comment: ["{0} is the column name"],
+                }),
+            foreignKeyNameEmptyWarning: l10n.t("Consider adding a name for this foreign key"),
             foreignKeyNameRepeatedError: (foreignKeyName: string) =>
                 l10n.t({
                     message: "Foreign key '{0}' already exists",
@@ -448,6 +473,13 @@ export class LocConstants {
                     args: [colCount],
                     comment: ["{0} is the number of columns"],
                 }),
+            identityColumnFKConstraint: (columnName: string) =>
+                l10n.t({
+                    message:
+                        "Column '{0}' is an identity column and cannot have a cascading foreign key",
+                    args: [columnName],
+                    comment: ["{0} is the column name"],
+                }),
             manageRelationships: l10n.t("Manage relationships"),
             noChangesDetected: l10n.t("No changes detected"),
             allowNull: l10n.t("Allow Null"),
@@ -456,6 +488,60 @@ export class LocConstants {
             scale: l10n.t("Scale"),
             precision: l10n.t("Precision"),
             defaultValue: l10n.t("Default Value"),
+            isComputed: l10n.t("Is Computed"),
+            computedFormula: l10n.t("Formula"),
+            isPersisted: l10n.t("Is Persisted"),
+            svg: l10n.t("SVG"),
+            png: l10n.t("PNG"),
+            jpeg: l10n.t("JPEG"),
+            columnNameRepeatedError: (columnName: string) =>
+                l10n.t({
+                    message: "Column '{0}' already exists",
+                    args: [columnName],
+                    comment: ["{0} is the column name"],
+                }),
+            columnNameEmptyError: l10n.t("Column name cannot be empty"),
+            columnPKCannotBeNull: (columnName: string) =>
+                l10n.t({
+                    message: "Column '{0}' cannot be null because it is a primary key",
+                    args: [columnName],
+                    comment: ["{0} is the column name"],
+                }),
+            columnMaxLengthEmptyError: l10n.t("Column max length cannot be empty"),
+            columnMaxLengthInvalid: (maxLength: string) =>
+                l10n.t({
+                    message: "Invalid max length '{0}'",
+                    args: [maxLength],
+                    comment: ["{0} is the max length"],
+                }),
+            loadingSchemaDesigner: l10n.t("Loading Schema Designer"),
+            generatingReport: l10n.t("Generating report, this might take a while..."),
+            nWarnings: (warningCount: number) =>
+                l10n.t({
+                    message: "{0} warnings",
+                    args: [warningCount],
+                    comment: ["{0} is the number of warnings"],
+                }),
+            nErrors: (errorCount: number) =>
+                l10n.t({
+                    message: "{0} errors",
+                    args: [errorCount],
+                    comment: ["{0} is the number of errors"],
+                }),
+            openPublishScript: l10n.t("Open Publish Script"),
+            Close: l10n.t("Close"),
+            publish: l10n.t("Publish"),
+            publishingChanges: l10n.t("Publishing Changes"),
+            changesPublishedSuccessfully: l10n.t("Changes published successfully"),
+            continueEditing: l10n.t("Continue Editing"),
+            onUpdate: l10n.t("On Update"),
+            onDelete: l10n.t("On Delete"),
+            cascade: l10n.t("Cascade"),
+            setNull: l10n.t("Set Null"),
+            setDefault: l10n.t("Set Default"),
+            noAction: l10n.t("No Action"),
+            possibleDataLoss: l10n.t("Possible Data Loss detected. Please review the changes."),
+            hasWarnings: l10n.t("Warnings detected. Please review the changes."),
         };
     }
 
@@ -479,6 +565,7 @@ export class LocConstants {
             settings: l10n.t("Settings"),
             compare: l10n.t("Compare"),
             schemaCompareOptions: l10n.t("Schema Compare Options"),
+            searchOptions: l10n.t("Search options..."),
             generalOptions: l10n.t("General Options"),
             includeObjectTypes: l10n.t("Include Object Types"),
             optionDescription: l10n.t("Option Description"),
@@ -494,8 +581,6 @@ export class LocConstants {
             switchDirection: l10n.t("Switch Direction"),
             switchSourceAndTarget: l10n.t("Switch Source and Target"),
             openScmpFile: l10n.t("Open .scmp file"),
-            open: l10n.t("Open"),
-            save: l10n.t("Save"),
             loadSourceTargetAndOptionsSavedInAnScmpFile: l10n.t(
                 "Load source, target, and options saved in an .scmp file",
             ),
@@ -523,50 +608,7 @@ export class LocConstants {
             areYouSureYouWantToUpdateTheTarget: l10n.t(
                 "Are you sure you want to update the target?",
             ),
-            yes: l10n.t("Yes"),
-            no: l10n.t("No"),
-            optionsChangedMessage: l10n.t("Options have changed. Recompare to see the comparison?"),
-            compareErrorMessage: (errorMessage: string) =>
-                l10n.t({
-                    message: "Schema Compare failed: '{0}'",
-                    args: [errorMessage ? errorMessage : "Unknown"],
-                    comment: ["{0} is the error message returned from the compare operation"],
-                }),
-            cancelErrorMessage: (errorMessage: string) =>
-                l10n.t({
-                    message: "Cancel schema compare failed: '{0}'",
-                    args: [errorMessage ? errorMessage : "Unknown"],
-                    comment: ["{0} is the error message returned from the cancel operation"],
-                }),
-            generateScriptErrorMessage: (errorMessage: string) =>
-                l10n.t({
-                    message: "Generate script failed: '{0}'",
-                    args: [errorMessage ? errorMessage : "Unknown"],
-                    comment: [
-                        "{0} is the error message returned from the generate script operation",
-                    ],
-                }),
             thereWasAnErrorUpdatingTheProject: l10n.t("There was an error updating the project"),
-            schemaCompareApplyFailed: (errorMessage: string) =>
-                l10n.t({
-                    message: "Schema Compare Apply failed '{0}'",
-                    args: [errorMessage ? errorMessage : "Unknown"],
-                    comment: [
-                        "{0} is the error message returned from the publish changes operation",
-                    ],
-                }),
-            openScmpErrorMessage: (errorMessage: string) =>
-                l10n.t({
-                    message: "Open scmp failed '{0}'",
-                    args: [errorMessage ? errorMessage : "Unknown"],
-                    comment: ["{0} is the error message returned from the open scmp operation"],
-                }),
-            saveScmpErrorMessage: (errorMessage: string) =>
-                l10n.t({
-                    message: "Save scmp failed: '{0}'",
-                    args: [errorMessage ? errorMessage : "Unknown"],
-                    comment: ["{0} is the error message returned from the save scmp operation"],
-                }),
         };
     }
 }
