@@ -10,7 +10,6 @@ import {
     ConnectionComponentsInfo,
     ConnectionDialogFormItemSpec,
     ConnectionDialogWebviewState,
-    ConnectionInputMode,
     IConnectionDialogProfile,
 } from "../sharedInterfaces/connectionDialog";
 import {
@@ -18,7 +17,7 @@ import {
     FormItemOptions,
     FormItemSpec,
     FormItemType,
-} from "../reactviews/common/forms/form";
+} from "../sharedInterfaces/form";
 import { sendErrorEvent } from "../telemetry/telemetry";
 import { TelemetryActions, TelemetryViews } from "../sharedInterfaces/telemetry";
 import { ConnectionDialog as Loc } from "../constants/locConstants";
@@ -268,18 +267,6 @@ export async function completeFormComponents(
         propertyName: "connectionString",
         label: Loc.connectionString,
         required: true,
-        validate: (state: ConnectionDialogWebviewState, value: string) => {
-            if (state.selectedInputMode === ConnectionInputMode.ConnectionString && !value) {
-                return {
-                    isValid: false,
-                    validationMessage: Loc.connectionStringIsRequired,
-                };
-            }
-            return {
-                isValid: true,
-                validationMessage: "",
-            };
-        },
         isAdvancedOption: false,
     };
 

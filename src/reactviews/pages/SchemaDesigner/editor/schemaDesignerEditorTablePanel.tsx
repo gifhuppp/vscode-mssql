@@ -25,6 +25,7 @@ import {
     TableHeaderCell,
     TableRow,
     Text,
+    Textarea,
     useArrowNavigationGroup,
     useTableColumnSizing_unstable,
     useTableFeatures,
@@ -33,10 +34,10 @@ import { locConstants } from "../../../common/locConstants";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as FluentIcons from "@fluentui/react-icons";
 import { v4 as uuidv4 } from "uuid";
-import { AdvancedColumnOption, columnUtils, namingUtils, tableUtils } from "../schemaDesignerUtils";
+import { columnUtils, namingUtils, tableUtils } from "../schemaDesignerUtils";
 import { SchemaDesigner } from "../../../../sharedInterfaces/schemaDesigner";
 import { SearchableDropdown } from "../../../common/searchableDropdown.component";
-import { SchemaDesignerEditorContext } from "./schemaDesignerEditorDrawer";
+import { SchemaDesignerEditorContext, TABLE_NAME_ERROR_KEY } from "./schemaDesignerEditorDrawer";
 
 const useStyles = makeStyles({
     panel: {
@@ -45,7 +46,7 @@ const useStyles = makeStyles({
         flexDirection: "column",
         overflowY: "auto",
         overflowX: "hidden",
-        padding: "10px",
+        padding: "5px",
         gap: "10px",
     },
     scrollContainer: {
@@ -71,96 +72,6 @@ const useStyles = makeStyles({
     },
 });
 
-// Component for handling advanced column options
-const ColumnAdvancedOptions = ({
-    column,
-    index,
-    updateColumn,
-}: {
-    column: SchemaDesigner.Column;
-    index: number;
-    updateColumn: (index: number, updatedColumn: SchemaDesigner.Column) => void;
-}) => {
-    const [options, setOptions] = useState<AdvancedColumnOption[]>([]);
-    const classes = useStyles();
-    useEffect(() => {
-        const advancedOptions = columnUtils.getAdvancedOptions(column);
-        setOptions(advancedOptions);
-    }, [column]);
-    return (
-        <div className={classes.advancedOptionsContainer}>
-            {options.map((option) => {
-                switch (option.type) {
-                    case "checkbox":
-                        return (
-                            <Field key={option.label}>
-                                <Checkbox
-                                    size="medium"
-                                    checked={column[option.columnProperty] as boolean}
-                                    onChange={(_e, data) => {
-                                        updateColumn(
-                                            index,
-                                            option.columnModifier(column, data.checked as boolean),
-                                        );
-                                    }}
-                                    label={option.label}
-                                />
-                            </Field>
-                        );
-                    case "input":
-                        return (
-                            <Field
-                                key={option.label}
-                                label={{
-                                    children: (
-                                        <InfoLabel size="small" info={option.hint}>
-                                            {option.label}
-                                        </InfoLabel>
-                                    ),
-                                }}>
-                                <Input
-                                    size="small"
-                                    value={(column[option.columnProperty] as number).toString()}
-                                    onChange={(_e, data) => {
-                                        updateColumn(
-                                            index,
-                                            option.columnModifier(column, data.value),
-                                        );
-                                    }}
-                                />
-                            </Field>
-                        );
-                    case "input-number":
-                        return (
-                            <Field
-                                key={option.label}
-                                label={{
-                                    children: (
-                                        <InfoLabel size="small" info={option.hint}>
-                                            {option.label}
-                                        </InfoLabel>
-                                    ),
-                                }}>
-                                <Input
-                                    size="small"
-                                    type="number"
-                                    value={(column[option.columnProperty] as number).toString()}
-                                    onChange={(_e, data) => {
-                                        updateColumn(
-                                            index,
-                                            option.columnModifier(column, parseInt(data.value)),
-                                        );
-                                    }}
-                                />
-                            </Field>
-                        );
-                }
-                return <></>;
-            })}
-        </div>
-    );
-};
-
 // Component for the columns table
 const ColumnsTable = ({
     columns,
@@ -179,6 +90,7 @@ const ColumnsTable = ({
 }) => {
     const classes = useStyles();
     const keyboardNavAttr = useArrowNavigationGroup({ axis: "grid" });
+    const context = useContext(SchemaDesignerEditorContext);
 
     // Define table columns
     const columnDefinitions = [
@@ -202,10 +114,19 @@ const ColumnsTable = ({
             columnId: "menu",
             renderHeaderCell: () => <Text></Text>,
         }),
+        createTableColumn({
+            columnId: "error",
+            renderHeaderCell: () => <></>,
+        }),
     ];
 
     // Column sizing
     const [columnSizingOptions] = useState<TableColumnSizingOptions>({
+        error: {
+            defaultWidth: 18,
+            minWidth: 18,
+            idealWidth: 18,
+        },
         name: {
             defaultWidth: 150,
             minWidth: 150,
@@ -222,14 +143,14 @@ const ColumnsTable = ({
             idealWidth: 70,
         },
         delete: {
-            defaultWidth: 30,
-            minWidth: 30,
-            idealWidth: 30,
+            defaultWidth: 20,
+            minWidth: 20,
+            idealWidth: 20,
         },
         menu: {
-            defaultWidth: 30,
-            minWidth: 30,
-            idealWidth: 30,
+            defaultWidth: 20,
+            minWidth: 20,
+            idealWidth: 20,
         },
     });
 
@@ -250,9 +171,140 @@ const ColumnsTable = ({
         ],
     );
 
+    const renderAdvancedOptions = (column: SchemaDesigner.Column, index: number) => {
+        const options = columnUtils.getAdvancedOptions(column);
+        return (
+            <div className={classes.advancedOptionsContainer}>
+                {options.map((option) => {
+                    switch (option.type) {
+                        case "checkbox":
+                            return (
+                                <Field key={option.label}>
+                                    <Checkbox
+                                        size="medium"
+                                        checked={column[option.columnProperty] as boolean}
+                                        onChange={(_e, data) => {
+                                            updateColumn(
+                                                index,
+                                                option.columnModifier(
+                                                    column,
+                                                    data.checked as boolean,
+                                                ),
+                                            );
+                                        }}
+                                        label={option.label}
+                                    />
+                                </Field>
+                            );
+                        case "input":
+                            return (
+                                <Field
+                                    key={option.label}
+                                    label={{
+                                        children: (
+                                            <InfoLabel size="small" info={option.hint}>
+                                                {option.label}
+                                            </InfoLabel>
+                                        ),
+                                    }}>
+                                    <Input
+                                        size="small"
+                                        value={(
+                                            column[option.columnProperty] as string
+                                        )?.toString()}
+                                        onChange={(_e, data) => {
+                                            updateColumn(
+                                                index,
+                                                option.columnModifier(column, data.value),
+                                            );
+                                        }}
+                                    />
+                                </Field>
+                            );
+                        case "input-number":
+                            return (
+                                <Field
+                                    key={option.label}
+                                    label={{
+                                        children: (
+                                            <InfoLabel size="small" info={option.hint}>
+                                                {option.label}
+                                            </InfoLabel>
+                                        ),
+                                    }}>
+                                    <Input
+                                        size="small"
+                                        type="number"
+                                        value={(
+                                            column[option.columnProperty] as number
+                                        )?.toString()}
+                                        onChange={(_e, data) => {
+                                            updateColumn(
+                                                index,
+                                                option.columnModifier(column, parseInt(data.value)),
+                                            );
+                                        }}
+                                    />
+                                </Field>
+                            );
+                        case "textarea":
+                            return (
+                                <Field
+                                    key={option.label}
+                                    label={{
+                                        children: (
+                                            <InfoLabel size="small" info={option.hint}>
+                                                {option.label}
+                                            </InfoLabel>
+                                        ),
+                                    }}>
+                                    <Textarea
+                                        size="small"
+                                        value={column[option.columnProperty] as string}
+                                        onChange={(_e, data) => {
+                                            updateColumn(
+                                                index,
+                                                option.columnModifier(column, data.value),
+                                            );
+                                        }}
+                                    />
+                                </Field>
+                            );
+                    }
+                    return <></>;
+                })}
+            </div>
+        );
+    };
+
     // Render cell content based on column id
     const renderCell = (column: SchemaDesigner.Column, columnId: TableColumnId, index: number) => {
         switch (columnId) {
+            case "error":
+                return (
+                    <>
+                        {context.errors[`columns_${column.id}`] && (
+                            <Popover>
+                                <PopoverTrigger disableButtonEnhancement>
+                                    <Button
+                                        icon={
+                                            <FluentIcons.ErrorCircleRegular
+                                                style={{
+                                                    color: "var(--vscode-errorForeground)",
+                                                }}
+                                                title={context.errors[column.name]}
+                                            />
+                                        }
+                                        appearance="transparent"
+                                    />
+                                </PopoverTrigger>
+                                <PopoverSurface tabIndex={-1}>
+                                    <div>{context.errors[`columns_${column.id}`]}</div>
+                                </PopoverSurface>
+                            </Popover>
+                        )}
+                    </>
+                );
             case "name":
                 return (
                     <Input
@@ -281,10 +333,17 @@ const ColumnsTable = ({
                             displayName: datatype,
                             value: datatype,
                         }))}
-                        selectedOption={{
-                            text: column.dataType,
-                            value: column.dataType,
-                        }}
+                        selectedOption={
+                            column.isComputed
+                                ? {
+                                      text: "Computed",
+                                      value: "Computed",
+                                  }
+                                : {
+                                      text: column.dataType,
+                                      value: column.dataType,
+                                  }
+                        }
                         onSelect={(selected) => {
                             const updatedColumn = {
                                 ...column,
@@ -298,6 +357,7 @@ const ColumnsTable = ({
                             maxWidth: "150px",
                         }}
                         size="small"
+                        disabled={column.isComputed}
                     />
                 );
 
@@ -310,8 +370,10 @@ const ColumnsTable = ({
                             updateColumn(index, {
                                 ...column,
                                 isPrimaryKey: data.checked as boolean,
+                                isNullable: data.checked ? false : column.isNullable,
                             });
                         }}
+                        disabled={column.isComputed}
                     />
                 );
 
@@ -345,12 +407,12 @@ const ColumnsTable = ({
                             <div>
                                 <h3 id={id}>Advanced options</h3>
                             </div>
-
-                            <ColumnAdvancedOptions
+                            {renderAdvancedOptions(column, index)}
+                            {/* <ColumnAdvancedOptions
                                 column={column}
                                 index={index}
                                 updateColumn={updateColumn}
-                            />
+                            /> */}
                         </PopoverSurface>
                     </Popover>
                 );
@@ -361,37 +423,47 @@ const ColumnsTable = ({
     };
 
     return (
-        <Table
-            {...keyboardNavAttr}
-            as="table"
-            size="extra-small"
-            {...columnSizing_unstable.getTableProps()}
-            ref={tableRef}>
-            <TableHeader>
-                <TableRow>
-                    {columnDefinitions.map((column) => (
-                        <TableHeaderCell
-                            {...columnSizing_unstable.getTableHeaderCellProps(column.columnId)}
-                            key={column.columnId}>
-                            {column.renderHeaderCell()}
-                        </TableHeaderCell>
-                    ))}
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {getRows().map((row, index) => (
-                    <TableRow key={index}>
-                        {tableColumns.map((column) => (
-                            <TableCell
-                                {...columnSizing_unstable.getTableCellProps(column.columnId)}
-                                key={column.columnId}>
-                                {renderCell(row.item, column.columnId, index)}
-                            </TableCell>
-                        ))}
+        <>
+            <Table
+                {...keyboardNavAttr}
+                as="table"
+                size="extra-small"
+                {...columnSizing_unstable.getTableProps()}
+                ref={tableRef}>
+                <TableHeader>
+                    <TableRow>
+                        {columnDefinitions.map((column) => {
+                            return (
+                                <TableHeaderCell
+                                    {...columnSizing_unstable.getTableHeaderCellProps(
+                                        column.columnId,
+                                    )}
+                                    key={column.columnId}>
+                                    {column.renderHeaderCell()}
+                                </TableHeaderCell>
+                            );
+                        })}
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                </TableHeader>
+                <TableBody>
+                    {getRows().map((_row, index) => (
+                        <TableRow key={index}>
+                            {tableColumns.map((column) => {
+                                return (
+                                    <TableCell
+                                        {...columnSizing_unstable.getTableCellProps(
+                                            column.columnId,
+                                        )}
+                                        key={column.columnId}>
+                                        {renderCell(columns[index], column.columnId, index)}
+                                    </TableCell>
+                                );
+                            })}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </>
     );
 };
 
@@ -445,14 +517,15 @@ export const SchemaDesignerEditorTablePanel = () => {
             isPrimaryKey: newColumns.length === 0, // First column is primary key by default
             isIdentity: false,
             isNullable: true,
-            isUnique: false,
-            maxLength: 0,
+            maxLength: "",
             precision: 0,
             scale: 0,
-            collation: "",
             identitySeed: 1,
             identityIncrement: 1,
             defaultValue: "",
+            isComputed: false,
+            computedFormula: "",
+            computedPersisted: false,
         });
 
         context.setTable({
@@ -499,17 +572,6 @@ export const SchemaDesignerEditorTablePanel = () => {
             ...context.table,
             name: name,
         });
-        const error = tableUtils.tableNameValidationError(context.schema, context.table);
-        if (error) {
-            context.setErrors({
-                ...context.errors,
-                name: error,
-            });
-        } else {
-            const newErrors = { ...context.errors };
-            delete newErrors.name;
-            context.setErrors(newErrors);
-        }
     };
 
     if (!context.table) {
@@ -536,7 +598,7 @@ export const SchemaDesignerEditorTablePanel = () => {
             </Field>
 
             {/* Table Name */}
-            <Field validationMessage={context.errors.name}>
+            <Field validationMessage={context.errors[TABLE_NAME_ERROR_KEY]}>
                 <Label>{locConstants.schemaDesigner.name}</Label>
                 <Input
                     autoFocus

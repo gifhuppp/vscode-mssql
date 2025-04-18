@@ -37,7 +37,10 @@ import { SchemaDesigner } from "../../../../sharedInterfaces/schemaDesigner";
 import { locConstants } from "../../../common/locConstants";
 import { SearchableDropdown } from "../../../common/searchableDropdown.component";
 import * as FluentIcons from "@fluentui/react-icons";
-import { SchemaDesignerEditorContext } from "./schemaDesignerEditorDrawer";
+import {
+    FOREIGN_KEY_ERROR_PREFIX,
+    SchemaDesignerEditorContext,
+} from "./schemaDesignerEditorDrawer";
 
 const useStyles = makeStyles({
     panel: {
@@ -292,17 +295,26 @@ const ForeignKeyCard = ({
     allTables,
     onDelete,
     onUpdate,
+    lastAddedForeignKeyIndex,
 }: {
     foreignKey: SchemaDesigner.ForeignKey;
     index: number;
     allTables: SchemaDesigner.Table[];
     onDelete: (index: number) => void;
     onUpdate: (index: number, updatedForeignKey: SchemaDesigner.ForeignKey) => void;
+    lastAddedForeignKeyIndex: number;
 }) => {
     const classes = useStyles();
     const context = useContext(SchemaDesignerEditorContext);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [errorMessage, setErrorMessage] = useState<string>("");
+    const [warningMessage, setWarningMessage] = useState<string>("");
+
+    useEffect(() => {
+        if (index === lastAddedForeignKeyIndex) {
+            inputRef.current?.focus();
+        }
+    }, [index, lastAddedForeignKeyIndex]);
 
     // Add a mapping between source and target columns
     const addColumnMapping = () => {
@@ -327,11 +339,17 @@ const ForeignKeyCard = ({
     };
 
     useEffect(() => {
-        const error = context.errors[`foreignKey-${foreignKey.id}`];
+        const error = context.errors[`${FOREIGN_KEY_ERROR_PREFIX}${foreignKey.id}`];
         if (error) {
             setErrorMessage(error);
         } else {
             setErrorMessage("");
+        }
+        const warning = context.warnings[`${FOREIGN_KEY_ERROR_PREFIX}${foreignKey.id}`];
+        if (warning) {
+            setWarningMessage(warning);
+        } else {
+            setWarningMessage("");
         }
     }, [context.errors]);
 
@@ -350,6 +368,9 @@ const ForeignKeyCard = ({
 
             {/* Error Message */}
             {errorMessage && <MessageBar intent="error">{errorMessage}</MessageBar>}
+
+            {/* Warning Message */}
+            {warningMessage && <MessageBar intent="warning">{warningMessage}</MessageBar>}
 
             {/* Foreign Key Name */}
             <div className={classes.row}>
@@ -419,6 +440,65 @@ const ForeignKeyCard = ({
                     </Dropdown>
                 </Field>
             </div>
+
+            {/* On Delete and Update Action */}
+            <div className={classes.row}>
+                <Field style={{ flex: 1 }} size="small">
+                    <Label>{locConstants.schemaDesigner.onDelete}</Label>
+                    <Dropdown
+                        size="small"
+                        value={foreignKeyUtils.convertOnActionToString(foreignKey.onDeleteAction)}
+                        selectedOptions={[
+                            foreignKeyUtils.convertOnActionToString(foreignKey.onDeleteAction),
+                        ]}
+                        multiselect={false}
+                        onOptionSelect={(_e, data) => {
+                            onUpdate(index, {
+                                ...foreignKey,
+                                onDeleteAction: foreignKeyUtils.convertStringToOnAction(
+                                    data.optionValue as string,
+                                ),
+                            });
+                        }}
+                        style={{ minWidth: "auto" }}>
+                        {foreignKeyUtils.getOnActionOptions().map((action, actionIndex) => (
+                            <Option
+                                key={`on-delete-option-${actionIndex}-${foreignKey.id}`}
+                                value={action.label}>
+                                {action.label}
+                            </Option>
+                        ))}
+                    </Dropdown>
+                </Field>
+                <Field style={{ flex: 1 }} size="small">
+                    <Label>{locConstants.schemaDesigner.onUpdate}</Label>
+                    <Dropdown
+                        size="small"
+                        value={foreignKeyUtils.convertOnActionToString(foreignKey.onUpdateAction)}
+                        selectedOptions={[
+                            foreignKeyUtils.convertOnActionToString(foreignKey.onUpdateAction),
+                        ]}
+                        multiselect={false}
+                        onOptionSelect={(_e, data) => {
+                            onUpdate(index, {
+                                ...foreignKey,
+                                onUpdateAction: foreignKeyUtils.convertStringToOnAction(
+                                    data.optionValue as string,
+                                ),
+                            });
+                        }}
+                        style={{ minWidth: "auto" }}>
+                        {foreignKeyUtils.getOnActionOptions().map((action, actionIndex) => (
+                            <Option
+                                key={`on-update-option--${actionIndex}-${foreignKey.id}`}
+                                value={action.label}>
+                                {action.label}
+                            </Option>
+                        ))}
+                    </Dropdown>
+                </Field>
+            </div>
+
             <div className={classes.mappingTableContainer}>
                 {/* Add Column Mapping Button */}
                 <Button
@@ -458,24 +538,6 @@ export const SchemaDesignerEditorForeignKeyPanel = () => {
         if (context.table) {
             setLastAddedForeignKeyIndex(-1);
         }
-        context.table.foreignKeys.forEach((foreignKey) => {
-            const validationResult = foreignKeyUtils.isForeignKeyValid(
-                context.schema?.tables ?? [],
-                context.table,
-                foreignKey,
-            );
-            if (!validationResult.isValid) {
-                context.setErrors({
-                    ...context.errors,
-                    [`foreignKey-${foreignKey.id}`]: validationResult.errorMessage ?? "",
-                });
-            } else {
-                // Remove error message if valid
-                const updatedErrors = { ...context.errors };
-                delete updatedErrors[`foreignKey-${foreignKey.id}`];
-                context.setErrors(updatedErrors);
-            }
-        });
     }, [context.table]);
 
     // Focus on the newly added foreign key's name input
@@ -495,7 +557,10 @@ export const SchemaDesignerEditorForeignKeyPanel = () => {
         const firstTable = availableTables[0];
         const newForeignKey: SchemaDesigner.ForeignKey = {
             id: uuidv4(),
-            name: namingUtils.getNextForeignKeyName(context.table.foreignKeys),
+            name: namingUtils.getNextForeignKeyName(
+                context.table.foreignKeys,
+                context.schema.tables,
+            ),
             columns: [context.table.columns[0]?.name || ""],
             referencedSchemaName: firstTable.schema,
             referencedTableName: firstTable.name,
@@ -554,6 +619,7 @@ export const SchemaDesignerEditorForeignKeyPanel = () => {
                         allTables={availableTables}
                         onDelete={deleteForeignKey}
                         onUpdate={updateForeignKey}
+                        lastAddedForeignKeyIndex={lastAddedForeignKeyIndex}
                     />
                 ))}
             </div>
